@@ -1,0 +1,38 @@
+name: Check ÖH WG-Zimmer
+
+on:
+  schedule:
+    # alle 30 Minuten - GitHub cron ist UTC, kann sich um ein paar Minuten verschieben
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}  # erlaubt manuelles Starten über den "Run workflow" Button
+
+permissions:
+  contents: write  # damit die Action seen.json zurück ins Repo committen darf
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repo auschecken
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Abhängigkeiten installieren
+        run: pip install -r requirements.txt
+
+      - name: Skript ausführen
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python watch_oeh.py
+
+      - name: seen.json zurück committen (falls geändert)
+        run: |
+          git config user.name "oeh-wg-watcher-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add seen.json
+          git diff --cached --quiet || git commit -m "update seen listings"
+          git push
